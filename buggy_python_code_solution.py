@@ -2,6 +2,7 @@ import sys
 import os
 import yaml
 import flask
+from urllib.parse import urlparse
 
 app = flask.Flask(__name__)
 
@@ -31,10 +32,23 @@ def fetch_website(urllib_version, url):
     else:
         raise ValueError("Unsupported urllib_version. Allowed values: '3'.")
 
+    # Validate and restrict user-provided URL to trusted destinations (SSRF protection)
+    parsed = urlparse(str(url).strip())
+    allowed_hosts = {"www.google.com"}
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("Unsupported URL scheme.")
+    if not parsed.hostname or parsed.hostname not in allowed_hosts:
+        raise ValueError("URL host is not allowed.")
+    if parsed.username or parsed.password:
+        raise ValueError("Credentials in URL are not allowed.")
+
+    safe_path = parsed.path or "/"
+    safe_url = f"{parsed.scheme}://{parsed.hostname}{safe_path}"
+
     # Fetch and print the requested URL
     try: 
         http = urllib.PoolManager()
-        r = http.request('GET', url)
+        r = http.request('GET', safe_url)
     except:
         print('Exception')
 
